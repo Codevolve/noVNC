@@ -89,7 +89,7 @@
                 var innerH = window.innerHeight;
                 var controlbarH = document.getElementById('noVNC_status_bar').offsetHeight;
                 if (innerW !== undefined && innerH !== undefined)
-                    rfb.requestDesktopSize(innerW, innerH);
+                    console.log(rfb.requestDesktopSize(innerW, innerH));
             }
         }
         function FBUComplete(rfb, fbu) {
