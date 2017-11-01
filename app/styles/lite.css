@@ -30,6 +30,10 @@ html {
   /*border-top-left-radius: 800px 600px;*/
 }
 
+#noVNC_status_bar {
+  display: none;
+}
+
 #noVNC_status {
   font-size: 12px;
   padding-top: 4px;
