@@ -1,26 +1,29 @@
 // Karma configuration
 
-module.exports = (config) => {
-  const customLaunchers = {};
-  let browsers = [];
-  let useSauce = false;
+module.exports = function(config) {
+  var customLaunchers = {};
+  var browsers = [];
+  var useSauce = false;
 
   // use Sauce when running on Travis
   if (process.env.TRAVIS_JOB_NUMBER) {
     useSauce = true;
-  } 
+  }
 
   if (useSauce && process.env.TEST_BROWSER_NAME && process.env.TEST_BROWSER_NAME != 'PhantomJS') {
-    const names = process.env.TEST_BROWSER_NAME.split(',');
-    const platforms = process.env.TEST_BROWSER_OS.split(',');
-    const versions = process.env.TEST_BROWSER_VERSION
-      ? process.env.TEST_BROWSER_VERSION.split(',')
-      : [null];
+    var names = process.env.TEST_BROWSER_NAME.split(',');
+    var platforms = process.env.TEST_BROWSER_OS.split(',');
+    var versions = [];
+    if (process.env.TEST_BROWSER_VERSION) {
+      versions = process.env.TEST_BROWSER_VERSION.split(',');
+    } else {
+      versions = [null];
+    }
 
-    for (let i = 0; i < names.length; i++) {
-      for (let j = 0; j < platforms.length; j++) {
-        for (let k = 0; k < versions.length; k++) {
-          let launcher_name = 'sl_' + platforms[j].replace(/[^a-zA-Z0-9]/g, '') + '_' + names[i];
+    for (var i = 0; i < names.length; i++) {
+      for (var j = 0; j < platforms.length; j++) {
+        for (var k = 0; k < versions.length; k++) {
+          var launcher_name = 'sl_' + platforms[j].replace(/[^a-zA-Z0-9]/g, '') + '_' + names[i];
           if (versions[k]) {
             launcher_name += '_' + versions[k];
           }
@@ -45,26 +48,24 @@ module.exports = (config) => {
     browsers = [];
   }
 
-  const my_conf = {
+  var my_conf = {
 
     // base path that will be used to resolve all patterns (eg. files, exclude)
     basePath: '',
 
     // frameworks to use
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
-    frameworks: ['mocha', 'sinon-chai'],
+    frameworks: ['requirejs', 'mocha', 'chai'],
 
     // list of files / patterns to load in the browser (loaded in order)
     files: [
-      { pattern: 'app/localization.js', included: false },
-      { pattern: 'app/webutil.js', included: false },
+      { pattern: 'vendor/sinon.js', included: false },
+      { pattern: 'node_modules/sinon-chai/lib/sinon-chai.js', included: false },
       { pattern: 'core/**/*.js', included: false },
       { pattern: 'vendor/pako/**/*.js', included: false },
-      { pattern: 'vendor/browser-es-module-loader/dist/*.js*', included: false },
       { pattern: 'tests/test.*.js', included: false },
       { pattern: 'tests/fake.*.js', included: false },
       { pattern: 'tests/assertions.js', included: false },
-      'vendor/promise.js',
       'tests/karma-test-main.js',
     ],
 
@@ -85,6 +86,23 @@ module.exports = (config) => {
     // start these browsers
     // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
     browsers: browsers,
+
+    // preprocess matching files before serving them to the browser
+    // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
+    preprocessors: {
+      'core/**/*.js': ['babel'],
+      'tests/test.*.js': ['babel'],
+      'tests/fake.*.js': ['babel'],
+      'tests/assertions.js': ['babel'],
+      'vendor/pako/**/*.js': ['babel'],
+    },
+
+    babelPreprocessor: {
+      options: {
+        plugins: ['transform-es2015-modules-amd', 'syntax-dynamic-import'],
+        sourceMap: 'inline',
+      },
+    },
 
     // test results reporter to use
     // possible values: 'dots', 'progress'

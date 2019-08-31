@@ -1,11 +1,21 @@
+import KeyTable from "./keysym.js";
 import keysyms from "./keysymdef.js";
 import vkeys from "./vkeys.js";
 import fixedkeys from "./fixedkeys.js";
 import DOMKeyTable from "./domkeytable.js";
-import * as browser from "../util/browser.js";
+
+function isMac() {
+    return navigator && !!(/mac/i).exec(navigator.platform);
+}
+function isIE() {
+    return navigator && !!(/trident/i).exec(navigator.userAgent);
+}
+function isEdge() {
+    return navigator && !!(/edge/i).exec(navigator.userAgent);
+}
 
 // Get 'KeyboardEvent.code', handling legacy browsers
-export function getKeycode(evt) {
+export function getKeycode(evt){
     // Are we getting proper key identifiers?
     // (unfortunately Firefox and Chrome are crappy here and gives
     // us an empty string on some platforms, rather than leaving it
@@ -24,10 +34,10 @@ export function getKeycode(evt) {
     // in the 'keyCode' field for non-printable characters. However
     // Webkit sets it to the same as charCode in 'keypress' events.
     if ((evt.type !== 'keypress') && (evt.keyCode in vkeys)) {
-        let code = vkeys[evt.keyCode];
+        var code = vkeys[evt.keyCode];
 
         // macOS has messed up this code for some reason
-        if (browser.isMac() && (code === 'ContextMenu')) {
+        if (isMac() && (code === 'ContextMenu')) {
             code = 'MetaRight';
         }
 
@@ -104,13 +114,13 @@ export function getKey(evt) {
 
         // IE and Edge have broken handling of AltGraph so we cannot
         // trust them for printable characters
-        if ((evt.key.length !== 1) || (!browser.isIE() && !browser.isEdge())) {
+        if ((evt.key.length !== 1) || (!isIE() && !isEdge())) {
             return evt.key;
         }
     }
 
     // Try to deduce it based on the physical key
-    const code = getKeycode(evt);
+    var code = getKeycode(evt);
     if (code in fixedkeys) {
         return fixedkeys[code];
     }
@@ -125,8 +135,8 @@ export function getKey(evt) {
 }
 
 // Get the most reliable keysym value we can get from a key event
-export function getKeysym(evt) {
-    const key = getKey(evt);
+export function getKeysym(evt){
+    var key = getKey(evt);
 
     if (key === 'Unidentified') {
         return null;
@@ -134,7 +144,7 @@ export function getKeysym(evt) {
 
     // First look up special keys
     if (key in DOMKeyTable) {
-        let location = evt.location;
+        var location = evt.location;
 
         // Safari screws up location for the right cmd key
         if ((key === 'Meta') && (location === 0)) {
@@ -150,12 +160,14 @@ export function getKeysym(evt) {
 
     // Now we need to look at the Unicode symbol instead
 
+    var codepoint;
+
     // Special key? (FIXME: Should have been caught earlier)
     if (key.length !== 1) {
         return null;
     }
 
-    const codepoint = key.charCodeAt();
+    codepoint = key.charCodeAt();
     if (codepoint) {
         return keysyms.lookup(codepoint);
     }

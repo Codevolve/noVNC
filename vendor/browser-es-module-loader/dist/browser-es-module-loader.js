@@ -20,8 +20,6 @@ function createSymbol (name) {
   return hasSymbol ? Symbol() : '@@' + name;
 }
 
-var toStringTag = hasSymbol && Symbol.toStringTag;
-
 
 
 
@@ -95,7 +93,7 @@ function LoaderError__Check_error_message_for_loader_stack (childErr, newMessage
   return err;
 }
 
-var resolvedPromise$1 = Promise.resolve();
+var resolvedPromise = Promise.resolve();
 
 /*
  * Simple Array values shim
@@ -142,9 +140,7 @@ function Loader () {
 Loader.prototype.constructor = Loader;
 
 function ensureInstantiated (module) {
-  if (module === undefined)
-    return;
-  if (module instanceof ModuleNamespace === false && module[toStringTag] !== 'module')
+  if (!(module instanceof ModuleNamespace))
     throw new TypeError('Module instantiation did not return a valid namespace object.');
   return module;
 }
@@ -155,7 +151,7 @@ Loader.prototype.import = function (key, parent) {
     throw new TypeError('Loader import method must be passed a module key string');
   // custom resolveInstantiate combined hook for better perf
   var loader = this;
-  return resolvedPromise$1
+  return resolvedPromise
   .then(function () {
     return loader[RESOLVE_INSTANTIATE](key, parent);
   })
@@ -197,7 +193,7 @@ function ensureResolution (resolvedKey) {
 
 Loader.prototype.resolve = function (key, parent) {
   var loader = this;
-  return resolvedPromise$1
+  return resolvedPromise
   .then(function() {
     return loader[RESOLVE](key, parent);
   })
@@ -265,7 +261,7 @@ Registry.prototype.get = function (key) {
 };
 // 4.4.7
 Registry.prototype.set = function (key, namespace) {
-  if (!(namespace instanceof ModuleNamespace || namespace[toStringTag] === 'module'))
+  if (!(namespace instanceof ModuleNamespace))
     throw new Error('Registry must be set with an instance of Module Namespace');
   this[REGISTRY][key] = namespace;
   return this;
@@ -322,8 +318,8 @@ function ModuleNamespace (baseObject/*, evaluate*/) {
 // 8.4.2
 ModuleNamespace.prototype = Object.create(null);
 
-if (toStringTag)
-  Object.defineProperty(ModuleNamespace.prototype, toStringTag, {
+if (typeof Symbol !== 'undefined' && Symbol.toStringTag)
+  Object.defineProperty(ModuleNamespace.prototype, Symbol.toStringTag, {
     value: 'Module'
   });
 
@@ -370,10 +366,8 @@ Module.evaluate = function (ns) {
 function throwResolveError (relUrl, parentUrl) {
   throw new RangeError('Unable to resolve "' + relUrl + '" to ' + parentUrl);
 }
-var backslashRegEx = /\\/g;
 function resolveIfNotPlain (relUrl, parentUrl) {
-  if (relUrl[0] === ' ' || relUrl[relUrl.length - 1] === ' ')
-    relUrl = relUrl.trim();
+  relUrl = relUrl.trim();
   var parentProtocol = parentUrl && parentUrl.substr(0, parentUrl.indexOf(':') + 1);
 
   var firstChar = relUrl[0];
@@ -383,16 +377,12 @@ function resolveIfNotPlain (relUrl, parentUrl) {
   if (firstChar === '/' && secondChar === '/') {
     if (!parentProtocol)
       throwResolveError(relUrl, parentUrl);
-    if (relUrl.indexOf('\\') !== -1)
-      relUrl = relUrl.replace(backslashRegEx, '/');
     return parentProtocol + relUrl;
   }
   // relative-url
   else if (firstChar === '.' && (secondChar === '/' || secondChar === '.' && (relUrl[2] === '/' || relUrl.length === 2 && (relUrl += '/')) ||
       relUrl.length === 1  && (relUrl += '/')) ||
       firstChar === '/') {
-    if (relUrl.indexOf('\\') !== -1)
-      relUrl = relUrl.replace(backslashRegEx, '/');
     var parentIsPlain = !parentProtocol || parentUrl[parentProtocol.length] !== '/';
 
     // read pathname from parent if a URL
@@ -485,13 +475,12 @@ function resolveIfNotPlain (relUrl, parentUrl) {
     if (isNode) {
       // C:\x becomes file:///c:/x (we don't support C|\x)
       if (relUrl[1] === ':' && relUrl[2] === '\\' && relUrl[0].match(/[a-z]/i))
-        return 'file:///' + relUrl.replace(backslashRegEx, '/');
+        return 'file:///' + relUrl.replace(/\\/g, '/');
     }
     return relUrl;
   }
 }
 
-var resolvedPromise = Promise.resolve();
 /*
  * Register Loader
  *
@@ -586,9 +575,6 @@ function createLoadRecord (state, key, registration) {
       // will be the array of dependency load record or a module namespace
       dependencyInstantiations: undefined,
 
-      // top-level await!
-      evaluatePromise: undefined,
-
       // NB optimization and way of ensuring module objects in setters
       // indicates setters which should run pre-execution of that dependency
       // setters is then just for completely executed module objects
@@ -606,7 +592,7 @@ RegisterLoader$1.prototype[Loader.resolveInstantiate] = function (key, parentKey
 
   return resolveInstantiate(loader, key, parentKey, registry, state)
   .then(function (instantiated) {
-    if (instantiated instanceof ModuleNamespace || instantiated[toStringTag] === 'module')
+    if (instantiated instanceof ModuleNamespace)
       return instantiated;
 
     // resolveInstantiate always returns a load record with a link record and no module value
@@ -621,7 +607,7 @@ RegisterLoader$1.prototype[Loader.resolveInstantiate] = function (key, parentKey
 
     return deepInstantiateDeps(loader, instantiated, link, registry, state)
     .then(function () {
-      return ensureEvaluate(loader, instantiated, link, registry, state);
+      return ensureEvaluate(loader, instantiated, link, registry, state, undefined);
     });
   });
 };
@@ -686,14 +672,14 @@ function createProcessAnonRegister (loader, load, state) {
 function instantiate (loader, load, link, registry, state) {
   return link.instantiatePromise || (link.instantiatePromise =
   // if there is already an existing registration, skip running instantiate
-  (load.registration ? resolvedPromise : resolvedPromise.then(function () {
+  (load.registration ? Promise.resolve() : Promise.resolve().then(function () {
     state.lastRegister = undefined;
     return loader[INSTANTIATE](load.key, loader[INSTANTIATE].length > 1 && createProcessAnonRegister(loader, load, state));
   }))
   .then(function (instantiation) {
     // direct module return from instantiate -> we're done
     if (instantiation !== undefined) {
-      if (!(instantiation instanceof ModuleNamespace || instantiation[toStringTag] === 'module'))
+      if (!(instantiation instanceof ModuleNamespace))
         throw new TypeError('Instantiate did not return a valid Module object.');
 
       delete state.records[load.key];
@@ -840,7 +826,7 @@ function registerDeclarative (loader, load, link, declare) {
     return value;
   }, new ContextualLoader(loader, load.key));
 
-  link.setters = declared.setters || [];
+  link.setters = declared.setters;
   link.execute = declared.execute;
   if (declared.exports) {
     link.moduleObj = moduleObj = declared.exports;
@@ -868,7 +854,7 @@ function instantiateDeps (loader, load, link, registry, state) {
         if (setter) {
           var instantiation = dependencyInstantiations[i];
 
-          if (instantiation instanceof ModuleNamespace || instantiation[toStringTag] === 'module') {
+          if (instantiation instanceof ModuleNamespace) {
             setter(instantiation);
           }
           else {
@@ -904,30 +890,37 @@ function instantiateDeps (loader, load, link, registry, state) {
 }
 
 function deepInstantiateDeps (loader, load, link, registry, state) {
-  var seen = [];
-  function addDeps (load, link) {
-    if (!link)
-      return resolvedPromise;
-    if (seen.indexOf(load) !== -1)
-      return resolvedPromise;
-    seen.push(load);
-    
-    return instantiateDeps(loader, load, link, registry, state)
-    .then(function () {
-      var depPromises;
-      for (var i = 0; i < link.dependencies.length; i++) {
-        var depLoad = link.dependencyInstantiations[i];
-        if (!(depLoad instanceof ModuleNamespace || depLoad[toStringTag] === 'module')) {
-          depPromises = depPromises || [];
-          depPromises.push(addDeps(depLoad, depLoad.linkRecord));
+  return new Promise(function (resolve, reject) {
+    var seen = [];
+    var loadCnt = 0;
+    function queueLoad (load) {
+      var link = load.linkRecord;
+      if (!link)
+        return;
+
+      if (seen.indexOf(load) !== -1)
+        return;
+      seen.push(load);
+
+      loadCnt++;
+      instantiateDeps(loader, load, link, registry, state)
+      .then(processLoad, reject);
+    }
+    function processLoad (load) {
+      loadCnt--;
+      var link = load.linkRecord;
+      if (link) {
+        for (var i = 0; i < link.dependencies.length; i++) {
+          var depLoad = link.dependencyInstantiations[i];
+          if (!(depLoad instanceof ModuleNamespace))
+            queueLoad(depLoad);
         }
       }
-      if (depPromises)
-        return Promise.all(depPromises);
-    });
-  }
-
-  return addDeps(load, link);
+      if (loadCnt === 0)
+        resolve();
+    }
+    queueLoad(load);
+  });
 }
 
 /*
@@ -988,22 +981,23 @@ ContextualLoader.prototype.import = function (key) {
   return this.loader.resolve(key, this.key);
 };*/
 
-function ensureEvaluate (loader, load, link, registry, state) {
+// this is the execution function bound to the Module namespace record
+function ensureEvaluate (loader, load, link, registry, state, seen) {
   if (load.module)
     return load.module;
+
   if (load.evalError)
     throw load.evalError;
-  if (link.evaluatePromise)
-    return link.evaluatePromise;
 
-  if (link.setters) {
-    var evaluatePromise = doEvaluateDeclarative(loader, load, link, registry, state, [load]);
-    if (evaluatePromise)
-      return evaluatePromise;
-  }
-  else {
-    doEvaluateDynamic(loader, load, link, registry, state, [load]);
-  }
+  if (seen && seen.indexOf(load) !== -1)
+    return load.linkRecord.moduleObj;
+
+  // for ES loads we always run ensureEvaluate on top-level, so empty seen is passed regardless
+  // for dynamic loads, we pass seen if also dynamic
+  var err = doEvaluate(loader, load, link, registry, state, link.setters ? [] : seen || []);
+  if (err)
+    throw err;
+
   return load.module;
 }
 
@@ -1015,23 +1009,10 @@ function makeDynamicRequire (loader, key, dependencies, dependencyInstantiations
         var depLoad = dependencyInstantiations[i];
         var module;
 
-        if (depLoad instanceof ModuleNamespace || depLoad[toStringTag] === 'module') {
+        if (depLoad instanceof ModuleNamespace)
           module = depLoad;
-        }
-        else {
-          if (depLoad.evalError)
-            throw depLoad.evalError;
-          if (depLoad.module === undefined && seen.indexOf(depLoad) === -1 && !depLoad.linkRecord.evaluatePromise) {
-            if (depLoad.linkRecord.setters) {
-              doEvaluateDeclarative(loader, depLoad, depLoad.linkRecord, registry, state, [depLoad]);
-            }
-            else {
-              seen.push(depLoad);
-              doEvaluateDynamic(loader, depLoad, depLoad.linkRecord, registry, state, seen);
-            }
-          }
-          module = depLoad.module || depLoad.linkRecord.moduleObj;
-        }
+        else
+          module = ensureEvaluate(loader, depLoad, depLoad.linkRecord, registry, state, seen);
 
         return '__useDefault' in module ? module.__useDefault : module;
       }
@@ -1040,172 +1021,132 @@ function makeDynamicRequire (loader, key, dependencies, dependencyInstantiations
   };
 }
 
-function evalError (load, err) {
-  load.linkRecord = undefined;
-  var evalError = LoaderError__Check_error_message_for_loader_stack(err, 'Evaluating ' + load.key);
-  if (load.evalError === undefined)
-    load.evalError = evalError;
-  throw evalError;
-}
-
-// es modules evaluate dependencies first
+// ensures the given es load is evaluated
 // returns the error if any
-function doEvaluateDeclarative (loader, load, link, registry, state, seen) {
-  var depLoad, depLink;
-  var depLoadPromises;
-  for (var i = 0; i < link.dependencies.length; i++) {
-    var depLoad = link.dependencyInstantiations[i];
-    if (depLoad instanceof ModuleNamespace || depLoad[toStringTag] === 'module')
-      continue;
+function doEvaluate (loader, load, link, registry, state, seen) {
+  seen.push(load);
 
-    // custom Module returned from instantiate
-    depLink = depLoad.linkRecord;
-    if (depLink) {
-      if (depLoad.evalError) {
-        evalError(load, depLoad.evalError);
+  var err;
+
+  // es modules evaluate dependencies first
+  // non es modules explicitly call moduleEvaluate through require
+  if (link.setters) {
+    var depLoad, depLink;
+    for (var i = 0; i < link.dependencies.length; i++) {
+      depLoad = link.dependencyInstantiations[i];
+
+      if (depLoad instanceof ModuleNamespace)
+        continue;
+
+      // custom Module returned from instantiate
+      depLink = depLoad.linkRecord;
+      if (depLink && seen.indexOf(depLoad) === -1) {
+        if (depLoad.evalError)
+          err = depLoad.evalError;
+        else
+          // dynamic / declarative boundaries clear the "seen" list
+          // we just let cross format circular throw as would happen in real implementations
+          err = doEvaluate(loader, depLoad, depLink, registry, state, depLink.setters ? seen : []);
       }
-      else if (depLink.setters) {
-        if (seen.indexOf(depLoad) === -1) {
-          seen.push(depLoad);
-          try {
-            var depLoadPromise = doEvaluateDeclarative(loader, depLoad, depLink, registry, state, seen);
-          }
-          catch (e) {
-            evalError(load, e);
-          }
-          if (depLoadPromise) {
-            depLoadPromises = depLoadPromises || [];
-            depLoadPromises.push(depLoadPromise.catch(function (err) {
-              evalError(load, err);
-            }));
-          }
-        }
-      }
-      else {
-        try {
-          doEvaluateDynamic(loader, depLoad, depLink, registry, state, [depLoad]);
-        }
-        catch (e) {
-          evalError(load, e);
-        }
+
+      if (err) {
+        load.linkRecord = undefined;
+        load.evalError = LoaderError__Check_error_message_for_loader_stack(err, 'Evaluating ' + load.key);
+        return load.evalError;
       }
     }
   }
 
-  if (depLoadPromises)
-    return link.evaluatePromise = Promise.all(depLoadPromises)
-    .then(function () {
-      if (link.execute) {
-        // ES System.register execute
-        // "this" is null in ES
-        try {
-          var execPromise = link.execute.call(nullContext);
-        }
-        catch (e) {
-          evalError(load, e);
-        }
-        if (execPromise)
-          return execPromise.catch(function (e) {
-            evalError(load, e);
-          })
-          .then(function () {
-            load.linkRecord = undefined;
-            return registry[load.key] = load.module = new ModuleNamespace(link.moduleObj);
-          });
-      }
-    
-      // dispose link record
-      load.linkRecord = undefined;
-      registry[load.key] = load.module = new ModuleNamespace(link.moduleObj);
-    });
-
+  // link.execute won't exist for Module returns from instantiate on top-level load
   if (link.execute) {
     // ES System.register execute
     // "this" is null in ES
-    try {
-      var execPromise = link.execute.call(nullContext);
+    if (link.setters) {
+      err = declarativeExecute(link.execute);
     }
-    catch (e) {
-      evalError(load, e);
-    }
-    if (execPromise)
-      return link.evaluatePromise = execPromise.catch(function (e) {
-        evalError(load, e);
-      })
-      .then(function () {
-        load.linkRecord = undefined;
-        return registry[load.key] = load.module = new ModuleNamespace(link.moduleObj);
+    // System.registerDynamic execute
+    // "this" is "exports" in CJS
+    else {
+      var module = { id: load.key };
+      var moduleObj = link.moduleObj;
+      Object.defineProperty(module, 'exports', {
+        configurable: true,
+        set: function (exports) {
+          moduleObj.default = moduleObj.__useDefault = exports;
+        },
+        get: function () {
+          return moduleObj.__useDefault;
+        }
       });
+
+      var require = makeDynamicRequire(loader, load.key, link.dependencies, link.dependencyInstantiations, registry, state, seen);
+
+      // evaluate deps first
+      if (!link.executingRequire)
+        for (var i = 0; i < link.dependencies.length; i++)
+          require(link.dependencies[i]);
+
+      err = dynamicExecute(link.execute, require, moduleObj.default, module);
+
+      // pick up defineProperty calls to module.exports when we can
+      if (module.exports !== moduleObj.__useDefault)
+        moduleObj.default = moduleObj.__useDefault = module.exports;
+
+      var moduleDefault = moduleObj.default;
+
+      // __esModule flag extension support via lifting
+      if (moduleDefault && moduleDefault.__esModule) {
+        for (var p in moduleDefault) {
+          if (Object.hasOwnProperty.call(moduleDefault, p))
+            moduleObj[p] = moduleDefault[p];
+        }
+      }
+    }
   }
 
   // dispose link record
   load.linkRecord = undefined;
+
+  if (err)
+    return load.evalError = LoaderError__Check_error_message_for_loader_stack(err, 'Evaluating ' + load.key);
+
   registry[load.key] = load.module = new ModuleNamespace(link.moduleObj);
+
+  // if not an esm module, run importer setters and clear them
+  // this allows dynamic modules to update themselves into es modules
+  // as soon as execution has completed
+  if (!link.setters) {
+    if (load.importerSetters)
+      for (var i = 0; i < load.importerSetters.length; i++)
+        load.importerSetters[i](load.module);
+    load.importerSetters = undefined;
+  }
 }
 
-// non es modules explicitly call moduleEvaluate through require
-function doEvaluateDynamic (loader, load, link, registry, state, seen) {
-  // System.registerDynamic execute
-  // "this" is "exports" in CJS
-  var module = { id: load.key };
-  var moduleObj = link.moduleObj;
-  Object.defineProperty(module, 'exports', {
-    configurable: true,
-    set: function (exports) {
-      moduleObj.default = moduleObj.__useDefault = exports;
-    },
-    get: function () {
-      return moduleObj.__useDefault;
-    }
-  });
+// {} is the closest we can get to call(undefined)
+var nullContext = {};
+if (Object.freeze)
+  Object.freeze(nullContext);
 
-  var require = makeDynamicRequire(loader, load.key, link.dependencies, link.dependencyInstantiations, registry, state, seen);
-
-  // evaluate deps first
-  if (!link.executingRequire)
-    for (var i = 0; i < link.dependencies.length; i++)
-      require(link.dependencies[i]);
-
+function declarativeExecute (execute) {
   try {
-    var output = link.execute.call(envGlobal, require, moduleObj.default, module);
+    execute.call(nullContext);
+  }
+  catch (e) {
+    return e;
+  }
+}
+
+function dynamicExecute (execute, require, exports, module) {
+  try {
+    var output = execute.call(envGlobal, require, exports, module);
     if (output !== undefined)
       module.exports = output;
   }
   catch (e) {
-    evalError(load, e);
+    return e;
   }
-
-  load.linkRecord = undefined;
-
-  // pick up defineProperty calls to module.exports when we can
-  if (module.exports !== moduleObj.__useDefault)
-    moduleObj.default = moduleObj.__useDefault = module.exports;
-
-  var moduleDefault = moduleObj.default;
-
-  // __esModule flag extension support via lifting
-  if (moduleDefault && moduleDefault.__esModule) {
-    for (var p in moduleDefault) {
-      if (Object.hasOwnProperty.call(moduleDefault, p))
-        moduleObj[p] = moduleDefault[p];
-    }
-  }
-
-  registry[load.key] = load.module = new ModuleNamespace(link.moduleObj);
-
-  // run importer setters and clear them
-  // this allows dynamic modules to update themselves into es modules
-  // as soon as execution has completed
-  if (load.importerSetters)
-    for (var i = 0; i < load.importerSetters.length; i++)
-      load.importerSetters[i](load.module);
-  load.importerSetters = undefined;
 }
-
-// the closest we can get to call(undefined)
-var nullContext = Object.create(null);
-if (Object.freeze)
-  Object.freeze(nullContext);
 
 var loader;
 
@@ -1269,7 +1210,7 @@ if (typeof document != 'undefined' && document.getElementsByTagName) {
   };
 
   // simple DOM ready
-  if (document.readyState !== 'loading')
+  if (document.readyState === 'complete')
     setTimeout(ready);
   else
     document.addEventListener('DOMContentLoaded', ready, false);
@@ -1343,16 +1284,9 @@ var WorkerPool = function (script, size) {
   var current = document.currentScript;
   // IE doesn't support currentScript
   if (!current) {
-    // Find an entry with out basename
+    // We should be the last loaded script
     var scripts = document.getElementsByTagName('script');
-    for (var i = 0; i < scripts.length; i++) {
-      if (scripts[i].src.indexOf("browser-es-module-loader.js") !== -1) {
-        current = scripts[i];
-        break;
-      }
-    }
-    if (!current)
-      throw Error("Could not find own <script> element");
+    current = scripts[scripts.length - 1];
   }
   script = current.src.substr(0, current.src.lastIndexOf("/")) + "/" + script;
   this._workers = new Array(size);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * ps2js: gettext .po to noVNC .js converter
- * Copyright (C) 2018 The noVNC Authors
+ * Copyright (C) 2016 Pierre Ossman
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,11 +17,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const getopt = require('node-getopt');
-const fs = require('fs');
-const po2json = require("po2json");
+var getopt = require('node-getopt');
+var fs = require('fs');
+var po2json = require("po2json");
 
-const opt = getopt.create([
+opt = getopt.create([
   ['h' , 'help'                , 'display this help'],
 ]).bindHelp().parseSystem();
 
@@ -30,14 +30,14 @@ if (opt.argv.length != 2) {
   process.exit(1);
 }
 
-const data = po2json.parseFileSync(opt.argv[0]);
+var data = po2json.parseFileSync(opt.argv[0]);
 
-const bodyPart = Object.keys(data).filter((msgid) => msgid !== "").map((msgid) => {
+var bodyPart = Object.keys(data).filter((msgid) => msgid !== "").map((msgid) => {
     if (msgid === "") return;
-    const msgstr = data[msgid][1];
+    var msgstr = data[msgid][1];
     return "    " + JSON.stringify(msgid) + ": " + JSON.stringify(msgstr);
 }).join(",\n");
 
-const output = "{\n" + bodyPart + "\n}";
+var output = "{\n" + bodyPart + "\n}";
 
 fs.writeFileSync(opt.argv[1], output);

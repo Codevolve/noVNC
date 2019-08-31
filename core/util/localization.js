@@ -1,6 +1,6 @@
 /*
  * noVNC: HTML5 VNC client
- * Copyright (C) 2018 The noVNC Authors
+ * Copyright (C) 2012 Joel Martin
  * Licensed under MPL 2.0 (see LICENSE.txt)
  *
  * See README.md for usage and integration instructions.
@@ -10,35 +10,36 @@
  * Localization Utilities
  */
 
-export class Localizer {
-    constructor() {
-        // Currently configured language
-        this.language = 'en';
+export function Localizer() {
+    // Currently configured language
+    this.language = 'en';
 
-        // Current dictionary of translations
-        this.dictionary = undefined;
-    }
+    // Current dictionary of translations
+    this.dictionary = undefined;
+}
 
+Localizer.prototype = {
     // Configure suitable language based on user preferences
-    setup(supportedLanguages) {
+    setup: function (supportedLanguages) {
+        var userLanguages;
+
         this.language = 'en'; // Default: US English
 
         /*
          * Navigator.languages only available in Chrome (32+) and FireFox (32+)
          * Fall back to navigator.language for other browsers
          */
-        let userLanguages;
         if (typeof window.navigator.languages == 'object') {
             userLanguages = window.navigator.languages;
         } else {
             userLanguages = [navigator.language || navigator.userLanguage];
         }
 
-        for (let i = 0;i < userLanguages.length;i++) {
-            const userLang = userLanguages[i]
-                .toLowerCase()
-                .replace("_", "-")
-                .split("-");
+        for (var i = 0;i < userLanguages.length;i++) {
+            var userLang = userLanguages[i];
+            userLang = userLang.toLowerCase();
+            userLang = userLang.replace("_", "-");
+            userLang = userLang.split("-");
 
             // Built-in default?
             if ((userLang[0] === 'en') &&
@@ -47,69 +48,66 @@ export class Localizer {
             }
 
             // First pass: perfect match
-            for (let j = 0; j < supportedLanguages.length; j++) {
-                const supLang = supportedLanguages[j]
-                    .toLowerCase()
-                    .replace("_", "-")
-                    .split("-");
+            for (var j = 0;j < supportedLanguages.length;j++) {
+                var supLang = supportedLanguages[j];
+                supLang = supLang.toLowerCase();
+                supLang = supLang.replace("_", "-");
+                supLang = supLang.split("-");
 
-                if (userLang[0] !== supLang[0]) {
+                if (userLang[0] !== supLang[0])
                     continue;
-                }
-                if (userLang[1] !== supLang[1]) {
+                if (userLang[1] !== supLang[1])
                     continue;
-                }
 
                 this.language = supportedLanguages[j];
                 return;
             }
 
             // Second pass: fallback
-            for (let j = 0;j < supportedLanguages.length;j++) {
-                const supLang = supportedLanguages[j]
-                    .toLowerCase()
-                    .replace("_", "-")
-                    .split("-");
+            for (var j = 0;j < supportedLanguages.length;j++) {
+                supLang = supportedLanguages[j];
+                supLang = supLang.toLowerCase();
+                supLang = supLang.replace("_", "-");
+                supLang = supLang.split("-");
 
-                if (userLang[0] !== supLang[0]) {
+                if (userLang[0] !== supLang[0])
                     continue;
-                }
-                if (supLang[1] !== undefined) {
+                if (supLang[1] !== undefined)
                     continue;
-                }
 
                 this.language = supportedLanguages[j];
                 return;
             }
         }
-    }
+    },
 
     // Retrieve localised text
-    get(id) {
+    get: function (id) {
         if (typeof this.dictionary !== 'undefined' && this.dictionary[id]) {
             return this.dictionary[id];
         } else {
             return id;
         }
-    }
+    },
 
     // Traverses the DOM and translates relevant fields
     // See https://html.spec.whatwg.org/multipage/dom.html#attr-translate
-    translateDOM() {
-        const self = this;
-
+    translateDOM: function () {
+        var self = this;
         function process(elem, enabled) {
             function isAnyOf(searchElement, items) {
                 return items.indexOf(searchElement) !== -1;
             }
 
             function translateAttribute(elem, attr) {
-                const str = self.get(elem.getAttribute(attr));
+                var str = elem.getAttribute(attr);
+                str = self.get(str);
                 elem.setAttribute(attr, str);
             }
 
             function translateTextNode(node) {
-                const str = self.get(node.data.trim());
+                var str = node.data.trim();
+                str = self.get(str);
                 node.data = str;
             }
 
@@ -136,7 +134,7 @@ export class Localizer {
                 }
                 if (elem.hasAttribute("label") &&
                     isAnyOf(elem.tagName, ["MENUITEM", "MENU", "OPTGROUP",
-                                           "OPTION", "TRACK"])) {
+                                   "OPTION", "TRACK"])) {
                     translateAttribute(elem, "label");
                 }
                 // FIXME: Should update "lang"
@@ -149,13 +147,13 @@ export class Localizer {
                 }
                 if (elem.hasAttribute("value") &&
                     elem.tagName === "INPUT" &&
-                    isAnyOf(elem.getAttribute("type"), ["reset", "button", "submit"])) {
+                    isAnyOf(elem.getAttribute("type"), ["reset", "button"])) {
                     translateAttribute(elem, "value");
                 }
             }
 
-            for (let i = 0; i < elem.childNodes.length; i++) {
-                const node = elem.childNodes[i];
+            for (var i = 0;i < elem.childNodes.length;i++) {
+                var node = elem.childNodes[i];
                 if (node.nodeType === node.ELEMENT_NODE) {
                     process(node, enabled);
                 } else if (node.nodeType === node.TEXT_NODE && enabled) {
@@ -165,8 +163,8 @@ export class Localizer {
         }
 
         process(document.body, true);
-    }
+    },
 }
 
-export const l10n = new Localizer();
+export var l10n = new Localizer();
 export default l10n.get.bind(l10n);

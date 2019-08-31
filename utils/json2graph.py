@@ -2,7 +2,7 @@
 
 '''
 Use matplotlib to generate performance charts
-Copyright (C) 2018 The noVNC Authors
+Copyright 2011 Joel Martin
 Licensed under MPL-2.0 (see docs/LICENSE.MPL-2.0)
 '''
 
